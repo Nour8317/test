@@ -1,0 +1,27 @@
+services:
+  db:
+    image: postgres:alpine
+    container_name: cartopack-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: cartopack
+    ports:
+      - "5437:5432"   # host:container
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: .        # root folder
+      dockerfile: dockerfile
+    container_name: cartopack-api
+    environment:
+      DATABASE_URL: postgresql://postgres:password@db:5432/cartopack
+    ports:
+      - "8001:8000"
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:

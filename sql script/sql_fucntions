@@ -1,0 +1,254 @@
+SELECT 
+    trg.tgname AS trigger_name,
+    tbl.relname AS table_name,
+    ns.nspname AS schema_name,
+    p.proname AS function_name
+FROM 
+    pg_trigger trg
+JOIN 
+    pg_class tbl ON trg.tgrelid = tbl.oid
+JOIN 
+    pg_namespace ns ON tbl.relnamespace = ns.oid
+JOIN 
+    pg_proc p ON trg.tgfoid = p.oid
+WHERE 
+    NOT trg.tgisinternal
+ORDER BY 
+    schema_name, table_name, trigger_name;
+
+
+-- Add new partial unique indexes
+CREATE UNIQUE INDEX unique_color_material
+ON production_component(material_name, material_type, color, color_code)
+WHERE dimensions IS NULL;
+
+CREATE UNIQUE INDEX unique_dimensions_material
+ON production_component(material_name, material_type, dimensions)
+WHERE color IS NULL AND color_code IS NULL;
+
+CREATE UNIQUE INDEX unique_material_type_name
+ON production_component(material_name, material_type)
+WHERE color IS NULL AND color_code IS NULL AND dimensions IS NULL;
+
+
+SELECT conname, conkey
+FROM pg_constraint
+WHERE conrelid = 'production_component'::regclass;
+
+
+
+CREATE OR REPLACE FUNCTION sync_inks_and_solvents()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO production_component (
+      component,
+      material_name,
+      material_type,
+      color,
+      color_code,
+      weight,
+      quantity,
+      updated_at
+  )
+  VALUES (
+      'inks and solvents',
+      NEW.material_name,
+      NEW.material_type,
+      NEW.color,
+      NEW.color_code,
+      NEW.weight,
+      NEW.quantity,
+      NOW()
+  )
+  ON CONFLICT (material_name, material_type, color, color_code)
+  WHERE dimensions IS NULL
+  DO UPDATE SET
+      weight = EXCLUDED.weight,
+      quantity = EXCLUDED.quantity,
+      updated_at = NOW();
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION sync_packaging()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO production_component (
+      component,
+      material_name,
+      material_type,
+      dimensions,
+      weight,
+      quantity,
+      updated_at
+  )
+  VALUES (
+      'packaging',
+      NEW.material_name,
+      NEW.material_type,
+      NEW.dimensions,
+      NEW.weight,
+      NEW.quantity,
+      NOW()
+  )
+  ON CONFLICT (material_name, material_type, dimensions)
+  WHERE color IS NULL AND color_code IS NULL
+  DO UPDATE SET
+      weight = EXCLUDED.weight,
+      quantity = EXCLUDED.quantity,
+      updated_at = NOW();
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+
+
+
+CREATE OR REPLACE FUNCTION sync_chemicals()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO production_component (
+      component,
+      material_name,
+      material_type,
+      weight,
+      quantity,
+      updated_at
+  )
+  VALUES (
+      'chemicals',
+      NEW.material_name,
+      NEW.material_type,
+      NEW.weight,
+      NEW.quantity,
+      NOW()
+  )
+  ON CONFLICT (material_name, material_type)
+  WHERE dimensions IS NULL AND color IS NULL AND color_code IS NULL
+  DO UPDATE SET
+      weight = EXCLUDED.weight,
+      quantity = EXCLUDED.quantity,
+      updated_at = NOW();
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+
+
+
+CREATE OR REPLACE FUNCTION sync_adhesives_glue()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO production_component (
+        component,
+        material_name,
+        material_type,
+        weight,
+        quantity,
+        updated_at
+    )
+    VALUES (
+        'adhesive glue',
+        NEW.material_name,
+        NEW.material_type,
+        NEW.weight,
+        NEW.quantity,
+        NOW()
+    )
+    ON CONFLICT (material_name, material_type)
+    WHERE color IS NULL AND color_code IS NULL AND dimensions IS NULL
+    DO UPDATE SET
+        weight = EXCLUDED.weight,
+        quantity = EXCLUDED.quantity,
+        updated_at = NOW();
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION sync_stitching_material()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO production_component (
+        component,
+        material_name,
+        material_type,
+        weight,
+        quantity,
+        updated_at
+    )
+    VALUES (
+        'stitching material',
+        NEW.material_name,
+        NEW.material_type,
+        NEW.weight,
+        NEW.quantity,
+        NOW()
+    )
+    ON CONFLICT (material_name, material_type)
+    WHERE color IS NULL AND color_code IS NULL AND dimensions IS NULL
+    DO UPDATE SET
+        weight = EXCLUDED.weight,
+        quantity = EXCLUDED.quantity,
+        updated_at = NOW();
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger for Adhesives Glue
+CREATE TRIGGER trg_sync_adhesives_glue
+AFTER INSERT OR UPDATE ON adhesives_glue
+FOR EACH ROW
+EXECUTE FUNCTION sync_adhesives_glue();
+
+-- Trigger for Chemicals
+CREATE TRIGGER trg_sync_chemicals
+AFTER INSERT OR UPDATE ON chemicals
+FOR EACH ROW
+EXECUTE FUNCTION sync_chemicals();
+
+-- Trigger for Inks and Solvents
+CREATE TRIGGER trg_sync_inks_and_solvents
+AFTER INSERT OR UPDATE ON inks_and_solvents
+FOR EACH ROW
+EXECUTE FUNCTION sync_inks_and_solvents();
+
+-- Trigger for Packaging
+CREATE TRIGGER trg_sync_packaging
+AFTER INSERT OR UPDATE ON packaging
+FOR EACH ROW
+EXECUTE FUNCTION sync_packaging();
+
+-- Trigger for Stitching Material
+CREATE TRIGGER trg_sync_stitching_material
+AFTER INSERT OR UPDATE ON stitching_material
+FOR EACH ROW
+EXECUTE FUNCTION sync_stitching_material();
+
+SELECT 
+    trg.tgname AS trigger_name,
+    tbl.relname AS table_name,
+    ns.nspname AS schema_name,
+    p.proname AS function_name
+FROM 
+    pg_trigger trg
+JOIN 
+    pg_class tbl ON trg.tgrelid = tbl.oid
+JOIN 
+    pg_namespace ns ON tbl.relnamespace = ns.oid
+JOIN 
+    pg_proc p ON trg.tgfoid = p.oid
+WHERE 
+    NOT trg.tgisinternal
+ORDER BY 
+    schema_name, table_name, trigger_name;
+
+
+
+
+
+
