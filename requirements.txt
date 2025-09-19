@@ -21,3 +21,4 @@ pytest
 pytest-asyncio
 dotenv
 slowapi
+fastapi==0.110.0
